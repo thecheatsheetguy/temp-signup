@@ -136,8 +136,17 @@ export default function SignUp() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [signupClicked, setSignupClicked] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useLoginBackground(canvasRef);
+
+  const showToast = useCallback((msg: string) => {
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    setToast(msg);
+    toastTimeout.current = setTimeout(() => setToast(null), 4000);
+  }, []);
 
   const handleSignUp = useCallback(async () => {
     if (signupClicked) return;
@@ -145,15 +154,42 @@ export default function SignUp() {
     const trimmedFirst = firstName.trim();
     const trimmedLast = lastName.trim();
 
-    if (!trimmedFirst) { alert("Enter first name to continue."); return; }
-    if (!trimmedLast) { alert("Enter last name to continue."); return; }
+    if (!trimmedFirst) { showToast("Enter first name to continue."); return; }
+    if (!trimmedLast) { showToast("Enter last name to continue."); return; }
 
     const trimmedEmail = email.toLowerCase().trim();
-    if (!trimmedEmail) { alert("Enter email address to continue."); return; }
+    if (!trimmedEmail) { showToast("Enter email address to continue."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { showToast("Please enter a valid email address."); return; }
 
     setSignupClicked(true);
-    setTimeout(() => setSignupClicked(false), 2000);
-  }, [firstName, lastName, email, signupClicked]);
+
+    try {
+      const honeypot = (document.getElementById("company-field") as HTMLInputElement)?.value || "";
+      const res = await fetch("/api/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: trimmedFirst,
+          lastName: trimmedLast,
+          email: trimmedEmail,
+          ...(honeypot ? { company: honeypot } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        showToast(data?.error || "An error occurred. Please try again.");
+        return;
+      }
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setSubmitted(true);
+    } catch {
+      showToast("An error occurred. Please try again.");
+    } finally {
+      setSignupClicked(false);
+    }
+  }, [firstName, lastName, email, signupClicked, showToast]);
 
   return (
     <div className="login-page">
@@ -176,110 +212,148 @@ export default function SignUp() {
 
       {/* Card */}
       <div className="login-container">
-        <div className="login-inner">
-          {/* Header */}
-          <div className="header">
-            <LemlistLogo height={32} />
-            <h1>Try for free</h1>
+        {submitted ? (
+          <div className="login-inner">
+            <div className="header">
+              <LemlistLogo height={32} />
+            </div>
+            <div className="outage-message">
+              <h2>Service disruption - we&apos;re on it</h2>
+              <p>
+                We&apos;re currently experiencing a major outage impacting lemlist. We sincerely apologize for the disruption.
+                <br />
+                Our team is fully mobilized and working to restore service.
+              </p>
+              <p>
+                We&apos;re targeting <strong>12:00pm CET today</strong> to be back online.
+              </p>
+              <p>
+                We&apos;ll keep you updated as we have more visibility.
+              </p>
+              <p>
+                For real-time updates → <a href="https://status.lemlist.com" className="btn-link alt" target="_blank" rel="noopener noreferrer"><span>status.lemlist.com</span></a>
+                <br />
+                Please reach out to <a href="mailto:support@lemlist.com" className="btn-link alt"><span>support@lemlist.com</span></a> for any questions.
+              </p>
+            </div>
           </div>
+        ) : (
+          <form className="login-inner" onSubmit={(e) => { e.preventDefault(); handleSignUp(); }}>
+            {/* Header */}
+            <div className="header">
+              <LemlistLogo height={32} />
+              <h1>Try for free</h1>
+            </div>
 
-          {/* Name fields */}
-          <div className="ui-row">
-            <div className="text-edit flex-1">
-              <label>First name</label>
+            {/* Name fields */}
+            <div className="ui-row">
+              <div className="text-edit flex-1">
+                <label>First name</label>
+                <div className="input-wrapper">
+                  <input
+                    type="text"
+                    data-testid="first-name"
+                    autoComplete="given-name"
+                    placeholder="Your first name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                  <div className="text-edit-border" />
+                </div>
+              </div>
+              <div className="text-edit flex-1">
+                <label>Last name</label>
+                <div className="input-wrapper">
+                  <input
+                    type="text"
+                    data-testid="last-name"
+                    autoComplete="family-name"
+                    placeholder="Your last name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                  <div className="text-edit-border" />
+                </div>
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="text-edit">
+              <label>Work email</label>
               <div className="input-wrapper">
                 <input
-                  type="text"
-                  data-testid="first-name"
-                  autoComplete="given-name"
-                  placeholder="Your first name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
+                  type="email"
+                  data-testid="signup-email"
+                  autoComplete="email"
+                  placeholder="Work email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                 />
                 <div className="text-edit-border" />
               </div>
             </div>
-            <div className="text-edit flex-1">
-              <label>Last name</label>
-              <div className="input-wrapper">
-                <input
-                  type="text"
-                  data-testid="last-name"
-                  autoComplete="family-name"
-                  placeholder="Your last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-                <div className="text-edit-border" />
+
+            {/* Honeypot — hidden from real users, bots fill it */}
+            <div aria-hidden="true" style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+              <input type="text" id="company-field" name="company" tabIndex={-1} autoComplete="off" />
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="btn btn-primary"
+              data-testid="signup-button"
+              disabled={signupClicked}
+            >
+              {signupClicked && <span className="spinner" />}
+              <span>Create account</span>
+            </button>
+
+            {/* Footer */}
+            <div className="ui-col text-align-center">
+              <div>
+                <span>Already have an account? </span>
+                <button
+                  type="button"
+                  className="btn-link"
+                  data-testid="signin-link"
+                  onClick={() => setSubmitted(true)}
+                >
+                  <span>Log in</span>
+                </button>
+              </div>
+              <div className="small text-light">
+                By continuing you agree to the{" "}
+                <a
+                  className="btn-link alt sm"
+                  href="https://www.lemlist.com/legal/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>Terms of use</span>
+                </a>{" "}
+                and{" "}
+                <a
+                  className="btn-link alt sm"
+                  href="https://www.lemlist.com/legal/privacy-policy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span>Privacy policy</span>
+                </a>
+                .
               </div>
             </div>
-          </div>
-
-          {/* Email */}
-          <div className="text-edit">
-            <label>Work email</label>
-            <div className="input-wrapper">
-              <input
-                type="email"
-                data-testid="signup-email"
-                autoComplete="email"
-                placeholder="Work email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <div className="text-edit-border" />
-            </div>
-          </div>
-
-          {/* Submit */}
-          <button
-            type="button"
-            className="btn btn-primary"
-            data-testid="signup-button"
-            disabled={signupClicked}
-            onClick={handleSignUp}
-          >
-            {signupClicked && <span className="spinner" />}
-            <span>Create account</span>
-          </button>
-
-          {/* Footer */}
-          <div className="ui-col text-align-center">
-            <div>
-              <span>Already have an account? </span>
-              <button
-                type="button"
-                className="btn-link"
-                data-testid="signin-link"
-                onClick={() => (window.location.href = "/login")}
-              >
-                <span>Log in</span>
-              </button>
-            </div>
-            <div className="small text-light">
-              By continuing you agree to the{" "}
-              <a
-                className="btn-link alt sm"
-                href="https://www.lemlist.com/terms"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span>Terms of use</span>
-              </a>{" "}
-              and{" "}
-              <a
-                className="btn-link alt sm"
-                href="https://www.lemlist.com/privacy-policy"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <span>Privacy policy</span>
-              </a>
-              .
-            </div>
-          </div>
-        </div>
+          </form>
+        )}
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className="toast-error" onClick={() => setToast(null)}>
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
