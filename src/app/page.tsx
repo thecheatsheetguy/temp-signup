@@ -225,7 +225,7 @@ export default function SignUp() {
                 Our team is fully mobilized and working to restore service.
               </p>
               <p>
-                We&apos;re targeting <strong>2:00pm CET today</strong> to be back online.
+                We&apos;re targeting <strong>2:00PM CET today</strong> to be back online.
               </p>
               <p>
                 We&apos;ll keep you updated as we have more visibility.
